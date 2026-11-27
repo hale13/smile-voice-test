@@ -31,6 +31,13 @@ body{background:#eaf7ff}
 .speech-area{display:flex;flex-direction:column;align-items:flex-start;gap:12px;max-width:650px}
 .bubble{position:relative;background:rgba(255,255,255,.94);border:2px solid #bceaff;border-radius:25px;padding:17px 21px;box-shadow:0 8px 24px #24678b24;max-width:100%;min-width:240px}
 .bubble:after{content:"";position:absolute;bottom:-13px;left:36px;width:22px;height:22px;background:#fff;border-right:2px solid #bceaff;border-bottom:2px solid #bceaff;transform:rotate(45deg)}
+.user-bubble{background:#eaf8ff;border:1.5px solid #a9def8;border-radius:20px;padding:11px 15px;max-width:min(100%,520px);box-shadow:0 5px 15px #24678b14}
+.user-bubble[hidden]{display:none}
+.user-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;font-weight:900;color:#3785ad;margin-bottom:4px}
+.user-text{font-size:15px;line-height:1.35;color:#174c78;font-weight:700;overflow-wrap:anywhere}
+.heard-toggle{display:flex;align-items:center;gap:8px;margin-top:10px;color:#55758a;font-size:12px;font-weight:700}
+.heard-toggle input{accent-color:#087fc4;width:16px;height:16px}
+button:disabled{opacity:.55;cursor:wait}
 .speaker{font-size:12px;text-transform:uppercase;letter-spacing:1.1px;font-weight:900;color:#1594cf;margin-bottom:6px}
 .line{font-size:clamp(19px,2.2vw,26px);line-height:1.3;font-weight:800;color:#174c78}
 .subline{font-size:14px;color:#5a7e96;margin-top:7px}
@@ -51,15 +58,16 @@ button:active{transform:scale(.97)}
 .inputrow input{min-width:0;flex:1;border:1px solid #c8e7f7;border-radius:14px;padding:11px 12px;font:inherit;font-size:14px;outline:none}
 .inputrow input:focus{border-color:#36a8df;box-shadow:0 0 0 3px #36a8df22}
 .send{min-width:52px;background:#e7f6ff;color:#0878b8}
-.transcript-tools{margin-top:9px;font-size:12px;color:#52758d;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.transcript-tools input{accent-color:#087fc4;width:16px;height:16px}.heard-box{margin-top:7px;padding:9px 11px;border-radius:13px;background:#f0f9ff;border:1px solid #d0edfb;color:#285b7b;font-size:13px;line-height:1.4;overflow-wrap:anywhere}.heard-label{font-size:10px;font-weight:900;letter-spacing:.7px;text-transform:uppercase;color:#1688bd;margin-bottom:3px}.footer{padding:9px 16px;text-align:center;background:#eaf7ff;color:#62839a;font-size:11px}
+.footer{padding:9px 16px;text-align:center;background:#eaf7ff;color:#62839a;font-size:11px}
 @media(max-width:760px){
- .scene{min-height:100svh}
- .character-wrap{left:50%;transform:translateX(-50%);top:9vh;bottom:auto;width:min(54vw,270px);height:38vh}
- .content{top:49vh;bottom:10px}
+ body{overflow-x:hidden}
+ .app{overflow:visible;min-height:100svh}
+ .scene{min-height:100svh;height:auto;overflow:visible;display:flex;flex-direction:column;padding-bottom:12px}
+ .character-wrap{left:50%;transform:translateX(-50%);top:9vh;bottom:auto;width:min(54vw,270px);height:36vh}
+ .content{position:relative;left:auto;right:auto;top:auto;bottom:auto;margin:43vh 16px 0;grid-template-columns:1fr;gap:10px}
  .speech-area{padding-left:0}
  .topbar{padding:12px}
  .tag{font-size:11px;padding:8px 10px}
- .content{grid-template-columns:1fr;bottom:12px;gap:10px}
  .speech-area{max-width:100%}
  .bubble{padding:13px 16px;min-width:0}
  .line{font-size:19px}
@@ -72,36 +80,6 @@ button:active{transform:scale(.97)}
  .footer{display:none}
 }
 @media(max-height:700px) and (min-width:761px){.scene{min-height:600px}.content{bottom:14px}.panel{padding:14px}}
-
-/* Responsive repair: keep the chat panel reachable on short/mobile screens. */
-@media(max-width:760px){
- .app{min-height:100svh;height:auto;overflow:visible}
- .scene{min-height:100svh;height:auto;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;padding-bottom:14px}
- .topbar{position:relative;top:auto;left:auto;right:auto;flex:0 0 auto;padding:10px 12px;gap:8px}
- .brand{padding:6px 10px;gap:7px}.brand-mark{width:29px;height:29px;font-size:17px}.brand strong{font-size:15px}
- .tag{font-size:10px;padding:7px 8px;text-align:center}
- .character-wrap{position:relative;left:auto;right:auto;top:auto;bottom:auto;transform:none;margin:2px auto 0;width:min(52vw,220px);height:clamp(150px,27svh,220px);min-height:150px;max-height:220px;flex:0 0 auto}
- .content{position:relative;left:auto;right:auto;top:auto;bottom:auto;display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:8px 12px 0;padding:0}
- .speech-area{padding-left:0;max-width:none;gap:8px}
- .bubble{width:100%;padding:11px 14px;min-width:0;border-radius:19px}
- .bubble:after{display:none}
- .speaker{font-size:10px;margin-bottom:4px}
- .line{font-size:18px;line-height:1.28}
- .subline{font-size:12px;margin-top:5px}
- .prompt{font-size:11px;padding:6px 10px}
- .panel{padding:11px 12px;border-radius:19px}
- .panel h2{font-size:17px;margin-bottom:3px}
- .panel p{font-size:12px;margin-bottom:8px}
- .actions{gap:7px}
- button{min-height:42px;padding:9px 7px;font-size:12px}
- .inputrow{margin-top:8px;gap:6px}
- .inputrow input{font-size:16px;padding:10px}
- .send{min-width:46px}
- .status{margin-top:8px;font-size:11px}
- .footer{display:none}
-}
-@media(max-width:380px){.tag{max-width:145px}.character-wrap{height:clamp(135px,23svh,180px);min-height:135px}.content{margin-left:10px;margin-right:10px}}
-
 </style>
 </head>
 <body>
@@ -114,6 +92,7 @@ button:active{transform:scale(.97)}
   <div class="character-wrap" aria-label="Smile the robot"><img class="character" id="smileCharacter" src="assets/smile-master.png" alt="Smile, the friendly white and blue robot"></div>
   <section class="content">
    <div class="speech-area">
+    <div class="user-bubble" id="heardBox" aria-live="polite" hidden><div class="user-label">You said</div><div class="user-text" id="heardText"></div></div>
     <div class="bubble" aria-live="polite">
      <div class="speaker">Smile says</div>
      <div class="line" id="smileLine">Hello, buddy! I'm so happy you're here. Shall we talk?</div>
@@ -133,9 +112,8 @@ button:active{transform:scale(.97)}
      <input id="typed" type="text" placeholder="Or type a little message…" aria-label="Message to Smile">
      <button class="send" id="sendBtn" aria-label="Send message">➤</button>
     </div>
+    <label class="heard-toggle"><input type="checkbox" id="showHeard" checked> Show what I said</label>
     <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Ready when you are</span></div>
-    <label class="transcript-tools"><input type="checkbox" id="showHeard" checked> Show what Smile heard</label>
-    <div class="heard-box" id="heardBox" aria-live="polite"><div class="heard-label">You said</div><span id="heardText">Your words will appear here when you speak.</span></div>
    </aside>
   </section>
  </main>
@@ -143,98 +121,87 @@ button:active{transform:scale(.97)}
 </div>
 <script>
 const AI_ENDPOINT = "https://smile-ai-backend.leha1303.workers.dev/";
-let conversationHistory = [];
-
 const line=document.getElementById('smileLine'), trans=document.getElementById('translation');
 const hint=document.getElementById('hint'), statusText=document.getElementById('statusText'), dot=document.getElementById('statusDot');
-const showHeard=document.getElementById('showHeard'), heardBox=document.getElementById('heardBox'), heardText=document.getElementById('heardText');
-function displayHeard(text){heardText.textContent=text||'Listening…';heardBox.hidden=!showHeard.checked;}
-showHeard.addEventListener('change',()=>{heardBox.hidden=!showHeard.checked;});
+const heardBox=document.getElementById('heardBox'), heardText=document.getElementById('heardText'), showHeard=document.getElementById('showHeard');
+const typed=document.getElementById('typed'), sendBtn=document.getElementById('sendBtn'), listenBtn=document.getElementById('listenBtn');
 let lastSpeech="Hello, buddy! I'm so happy you're here. Shall we talk?";
-let recognition=null, listening=false;
+let recognition=null, listening=false, conversationHistory=[], activeController=null, requestNumber=0;
 function setStatus(s,live=false){statusText.textContent=s;dot.classList.toggle('live',live)}
 function setCharacterState(state){document.querySelector('.scene').dataset.state=state}
+function displayHeard(text){heardText.textContent=text||'';heardBox.hidden=!showHeard.checked||!text}
+showHeard.addEventListener('change',()=>{heardBox.hidden=!showHeard.checked||!heardText.textContent});
 function speak(text){
  lastSpeech=text;
- if(!('speechSynthesis' in window)){setStatus('Speech is not supported in this browser');return}
- speechSynthesis.cancel();
- const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.88;u.pitch=1.12;
- const voices=speechSynthesis.getVoices();
- const preferred=voices.find(v=>/samantha/i.test(v.name))||voices.find(v=>/^en[-_]/i.test(v.lang));
- if(preferred)u.voice=preferred;
- u.onstart=()=>{setStatus('Smile is speaking…',true);setCharacterState('speaking')};
- u.onend=()=>{setStatus('Your turn! I am listening whenever you are');setCharacterState('idle')};
- speechSynthesis.speak(u);
+ if(!('speechSynthesis' in window)){setStatus('Smile can reply in text, but speaking is not supported here.');return}
+ try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.9;u.pitch=1.1;
+  const voices=speechSynthesis.getVoices();const preferred=voices.find(v=>/samantha/i.test(v.name))||voices.find(v=>/^en[-_]/i.test(v.lang));if(preferred)u.voice=preferred;
+  u.onstart=()=>{setStatus('Smile is speaking…',true);setCharacterState('speaking')};
+  u.onend=()=>{setStatus('Your turn! I am listening whenever you are');setCharacterState('idle')};
+  u.onerror=()=>{setStatus('Smile has replied. You can read the message above.');setCharacterState('idle')};speechSynthesis.speak(u);
+ }catch(e){setStatus('Smile has replied. You can read the message above.');setCharacterState('idle')}
 }
-function show(en,vi,tip){line.textContent=en;trans.textContent=vi;hint.textContent=tip||'💡 You can say anything. I’m listening!';}
-async function reply(raw){
- const message=String(raw||'').trim(); if(!message)return;
- setStatus('Smile is thinking…',true); setCharacterState('thinking');
- // Keep only a few recent turns to reduce request size and preserve useful context.
- const shortGuidance=' Reply in simple, friendly English for a young child, usually one or two short sentences. If you do not understand, ask one gentle question. If the child needs help, explain briefly in Vietnamese. Never sound like a teacher or examiner.';
- try {
-  const response=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message+shortGuidance,history:conversationHistory.slice(-6)})});
+function show(en,vi,tip){line.textContent=en;trans.textContent=vi||'';hint.textContent=tip||'💡 You can say anything. I’m listening!'}
+function friendlyRetry(){
+ const en="I didn't catch that. Can you say it slowly, please?";
+ const vi="Smile chưa nghe rõ. Con nói từ từ lại nhé, để Smile nghe cho rõ nào!";
+ show(en,vi,'🎧 Take your time. Smile is listening.');speak(en);setStatus('Ready to listen again');setCharacterState('idle');
+}
+async function reply(raw, options={}){
+ const message=String(raw||'').trim();if(!message)return;
+ if(message.length>500){displayHeard(message);friendlyRetry();return}
+ if(activeController){activeController.abort();activeController=null}
+ const thisRequest=++requestNumber;const controller=new AbortController();activeController=controller;
+ const timeout=setTimeout(()=>controller.abort(),55000);
+ let slowNotice=setTimeout(()=>{if(thisRequest===requestNumber)setStatus('Smile is thinking… just a little longer 💙',true)},12000);
+ displayHeard(options.displayText===false?'':message);
+ setStatus('Smile is thinking…',true);setCharacterState('thinking');sendBtn.disabled=true;listenBtn.disabled=true;
+ try{
+  const response=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,history:conversationHistory.slice(-6)}),signal:controller.signal});
+  if(!response.ok)throw new Error('Smile could not connect ('+response.status+')');
   const data=await response.json();
-  if(!response.ok||!data.reply)throw new Error(data.error||'AI request failed');
-  const answer=String(data.reply).trim();
-  conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});
-  conversationHistory=conversationHistory.slice(-8);
-  show(answer,'', '💙 You can ask Smile to explain in Vietnamese anytime.'); speak(answer);
- } catch(err) {
-  const en="Oops! I can't connect just now. Could you try again in a little moment?";
-  const vi='Smile đang gặp chút trục trặc kết nối. Con thử lại sau một lát nhé!';
-  show(en,vi,'🔄 You can also type your message.'); speak(en); setStatus('Connection problem. Please try again.');
+  const answer=String(data&&data.reply||'').trim();if(!answer)throw new Error('Smile did not receive an answer');
+  if(thisRequest!==requestNumber)return;
+  conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});conversationHistory=conversationHistory.slice(-8);
+  show(answer,'','💙 You can ask Smile to explain in Vietnamese anytime.');speak(answer);
+ }catch(err){
+  if(thisRequest!==requestNumber)return;
+  if(err&&err.name==='AbortError'){
+   const en="Oops, I’m taking a little too long. Can we try once more?";const vi='Smile đang mất hơi lâu để trả lời. Mình thử lại nhé!';show(en,vi,'💙 Your message is still important to me.');speak(en);setStatus('That took too long. Please try again.');
+  }else{
+   const en="Oops! I can't connect just now. Could you try again in a little moment?";const vi='Smile đang gặp chút trục trặc kết nối. Con thử lại sau một lát nhé!';show(en,vi,'🔄 You can also try sending your message again.');speak(en);setStatus('Connection problem. Please try again.');
+  }
+  setCharacterState('idle');
+ }finally{
+  clearTimeout(timeout);clearTimeout(slowNotice);
+  if(thisRequest===requestNumber){activeController=null;sendBtn.disabled=false;listenBtn.disabled=false}
  }
 }
 const stories=[
- ["Once upon a time, a tiny blue dragon was afraid of the dark. One night, a firefly showed him that even a little light can make a big difference. And they became best friends!","Ngày xửa ngày xưa, một chú rồng xanh bé xíu sợ bóng tối. Một đêm, đom đóm chỉ cho rồng thấy ánh sáng nhỏ cũng có thể tạo nên khác biệt lớn. Rồi họ trở thành bạn thân!"],
- ["A little astronaut robot flew to the moon. He found a sleepy star hiding behind a crater. 'Come with me,' he said, 'the sky is more fun when we explore together!'","Một robot phi hành gia bay lên mặt trăng. Bạn ấy tìm thấy một ngôi sao buồn ngủ trốn sau miệng núi. 'Đi cùng mình nhé, bầu trời vui hơn khi chúng ta cùng khám phá!'"]
-];
-let storyIndex=0;
-function tellStory(){reply("Tell me a short, fun, interactive story in simple English. Pause at an exciting moment and invite me to decide what happens next.");}
-function gentleRepeat(messageEn="I didn't catch that. Can you say it slowly, please?", messageVi="Smile chưa nghe rõ. Con nói từ từ lại nhé, để Smile nghe cho rõ nào!"){
- show(messageEn,messageVi,'🎧 Take your time. Smile is listening.'); speak(messageEn); setStatus('Ready to listen again'); setCharacterState('idle');
-}
+ "Tell me a fun, gentle little story about a tiny dragon who makes a new friend. Keep it suitable for a young child.",
+ "Tell me a magical little adventure about a robot exploring the moon. Keep it warm, funny, and suitable for a young child."
+];let storyIndex=0;
+function tellStory(){const prompt=stories[storyIndex++%stories.length];displayHeard('Tell me a story, Smile!');reply(prompt,{displayText:false})}
 function startListening(){
- setStatus('Checking microphone…',true);
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!window.isSecureContext){setStatus('Voice needs a secure HTTPS connection. You can type instead.');return}
- if(!SR){setStatus('Voice input is not supported here. Please try Chrome or type instead.');return}
+ if(!window.isSecureContext){setStatus('Voice needs a secure connection. You can type instead.');return}
+ if(!SR){setStatus('Voice input is not available here. Please try Chrome or type instead.');return}
  if(listening){try{recognition&&recognition.stop()}catch(e){}return}
  try{
-  recognition=new SR();
-  recognition.lang='en-US';recognition.interimResults=true;recognition.maxAlternatives=1;
+  recognition=new SR();recognition.lang='en-US';recognition.interimResults=true;recognition.maxAlternatives=1;
   recognition.onstart=()=>{listening=true;setStatus('I’m listening… speak when you’re ready',true);setCharacterState('listening');hint.textContent='🎧 Smile is listening. Take your time.';displayHeard('Listening…')};
-  recognition.onresult=e=>{
-   let interim='', finalText='';
-   for(let i=e.resultIndex;i<e.results.length;i++){
-    const part=e.results[i][0]?.transcript||'';
-    if(e.results[i].isFinal)finalText+=part; else interim+=part;
-   }
-   if(interim)displayHeard(interim+' …');
-   if(finalText.trim()){
-    const said=finalText.trim();displayHeard(said);setStatus('I heard: '+said);
-    if(said.length>220){gentleRepeat("Wow, that's a lot! Can you tell me in little pieces, please?","Ôi, con có nhiều điều muốn kể quá! Mình chia thành từng đoạn ngắn nhé?");return;}
-    reply(said);
-   }
-  };
-  recognition.onnomatch=()=>{gentleRepeat()};
-  recognition.onerror=e=>{
-   listening=false;dot.classList.remove('live');setCharacterState('idle');
-   if(e.error==='no-speech'){gentleRepeat();return;}
-   const messages={ 'not-allowed':'Microphone permission is blocked. Please allow microphone access in your browser settings.', 'service-not-allowed':'Voice service is unavailable. Please try Chrome or type your message.', 'audio-capture':'No microphone was found. Please check your microphone.', 'network':'Voice recognition has a network problem. Please try again.' };
-   setStatus(messages[e.error]||'Voice input had a problem. Please try again or type.');
-  };
-  recognition.onend=()=>{listening=false;if(!speechSynthesis.speaking){setStatus('Ready when you are');setCharacterState('idle')}};
+  recognition.onresult=e=>{let interim='',finalText='';for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0]&&e.results[i][0].transcript||'';if(e.results[i].isFinal)finalText+=part;else interim+=part}if(interim)displayHeard(interim+' …');if(finalText.trim()){const said=finalText.trim();displayHeard(said);setStatus('I heard you!');reply(said)}};
+  recognition.onnomatch=()=>friendlyRetry();
+  recognition.onerror=e=>{listening=false;setCharacterState('idle');if(e.error==='no-speech'){friendlyRetry();return}const msgs={'not-allowed':'Please allow microphone access in your browser, or type your message.','audio-capture':'I cannot find a microphone. You can type instead.','network':'The voice connection is having trouble. Please try again or type.'};setStatus(msgs[e.error]||'I could not hear that. Please try again or type.');};
+  recognition.onend=()=>{listening=false;if(!speechSynthesis.speaking&& !activeController){setStatus('Ready when you are');setCharacterState('idle')}};
   recognition.start();
- }catch(err){listening=false;setCharacterState('idle');setStatus('Could not start the microphone. Check browser permission and try again.');}
+ }catch(e){listening=false;setCharacterState('idle');setStatus('Could not start the microphone. Please check its permission or type instead.')}
 }
+function sendTyped(){const v=typed.value.trim();if(!v||sendBtn.disabled)return;typed.value='';reply(v)}
 document.getElementById('listenBtn').addEventListener('click',startListening);
 document.getElementById('storyBtn').addEventListener('click',tellStory);
 document.getElementById('repeatBtn').addEventListener('click',()=>speak(lastSpeech));
-function sendTyped(){const v=document.getElementById('typed').value.trim();if(!v)return;document.getElementById('typed').value='';reply(v)}
-document.getElementById('sendBtn').addEventListener('click',sendTyped);
-document.getElementById('typed').addEventListener('keydown',e=>{if(e.key==='Enter')sendTyped()});
+sendBtn.addEventListener('click',sendTyped);typed.addEventListener('keydown',e=>{if(e.key==='Enter')sendTyped()});
 if('speechSynthesis' in window)speechSynthesis.getVoices();
 </script>
 </body>
