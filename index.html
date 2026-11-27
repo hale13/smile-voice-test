@@ -128,9 +128,43 @@ const typed=document.getElementById('typed'), sendBtn=document.getElementById('s
 let lastSpeech="Hello, buddy! I'm so happy you're here. Shall we talk?";
 let recognition=null, listening=false, conversationHistory=[], activeController=null, requestNumber=0;
 let voiceSessionActive=false, waitingForReply=false, recognitionStarting=false, speechToken=0, speechUnlocked=false;
+let silenceTimers=[], silenceStartedAt=0, silenceNudgeCount=0;
 function setStatus(s,live=false){statusText.textContent=s;dot.classList.toggle('live',live)}
 function setCharacterState(state){document.querySelector('.scene').dataset.state=state}
 function displayHeard(text){heardText.textContent=text||'';heardBox.hidden=!showHeard.checked||!text}
+function clearSilenceTimers(){silenceTimers.forEach(id=>clearTimeout(id));silenceTimers=[]}
+function startSilenceWatch(){
+ if(!voiceSessionActive)return;
+ clearSilenceTimers();silenceStartedAt=Date.now();silenceNudgeCount=0;scheduleSilenceWatch();
+}
+function scheduleSilenceWatch(){
+ if(!voiceSessionActive||!silenceStartedAt)return;
+ clearSilenceTimers();
+ const elapsed=Date.now()-silenceStartedAt;
+ if(elapsed>=120000){silenceTimers.push(setTimeout(()=>{if(voiceSessionActive&&!waitingForReply&&!activeController)stopVoiceSession('Smile is taking a little break. Tap Talk to Smile whenever you want to chat again.');},100));return;}
+ if(silenceNudgeCount===0&&elapsed<25000){
+  silenceTimers.push(setTimeout(()=>sendProactiveNudge(1),25000-elapsed));
+ }
+ if(silenceNudgeCount===1&&elapsed<55000){
+  silenceTimers.push(setTimeout(()=>sendProactiveNudge(2),55000-elapsed));
+ }
+ if(elapsed<120000){
+  silenceTimers.push(setTimeout(()=>{
+   if(voiceSessionActive&&!waitingForReply&&!activeController){
+    stopVoiceSession('Smile is taking a little break. Tap Talk to Smile whenever you want to chat again.');
+   }
+  },120000-elapsed));
+ }
+}
+function sendProactiveNudge(number){
+ if(!voiceSessionActive||waitingForReply||activeController)return;
+ clearSilenceTimers();silenceNudgeCount=number;waitingForReply=true;
+ try{if(recognition)recognition.stop()}catch(e){}
+ const prompt=number===1
+  ? 'The child has been quiet for a little while. Take the initiative gently: say one short, warm, playful thing related to our conversation, perhaps share a tiny fun thought, and invite the child to join in. Do not mention the silence or pressure the child. Keep it natural.'
+  : 'The child is still quiet. Make one final gentle, friendly attempt to keep the conversation welcoming. You may share a tiny funny robot thought or offer a simple playful choice. Do not mention the silence, do not pressure the child, and keep it very short.';
+ reply(prompt,{displayText:false,proactive:true});
+}
 function unlockSpeechFromTap(){
  // Prime browser speech synthesis directly inside the child's microphone-button tap.
  // This is especially important on iOS Safari, which may reject speech started
@@ -183,10 +217,12 @@ async function reply(raw, options={}){
   const data=await response.json();
   const answer=String(data&&data.reply||'').trim();if(!answer)throw new Error('Smile did not receive an answer');
   if(thisRequest!==requestNumber)return;
-  conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});conversationHistory=conversationHistory.slice(-8);
+  if(options.proactive){conversationHistory.push({role:'assistant',content:answer});}
+  else{conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});}
+  conversationHistory=conversationHistory.slice(-8);
   show(answer,'','💙 You can ask Smile to explain in Vietnamese anytime.');
   // Both typed and spoken messages use the same automatic voice reply.
-  speak(answer);
+  speak(answer,()=>{if(voiceSessionActive){if(!silenceStartedAt||silenceNudgeCount===0)startSilenceWatch();else scheduleSilenceWatch();}});
  }catch(err){
   if(thisRequest!==requestNumber)return;
   if(err&&err.name==='AbortError'){
@@ -205,11 +241,12 @@ const stories=[
  "Tell me a magical little adventure about a robot exploring the moon. Keep it warm, funny, and suitable for a young child."
 ];let storyIndex=0;
 function tellStory(){const prompt=stories[storyIndex++%stories.length];displayHeard('Tell me a story, Smile!');reply(prompt,{displayText:false})}
-function stopVoiceSession(){
+function stopVoiceSession(message){
+ clearSilenceTimers();silenceStartedAt=0;silenceNudgeCount=0;
  voiceSessionActive=false;waitingForReply=false;recognitionStarting=false;
  try{if(recognition)recognition.stop()}catch(e){}
  try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch(e){}
- listening=false;listenBtn.textContent='🎤 Talk to Smile';setStatus('Conversation stopped. Tap Talk to Smile when you want to chat again.');setCharacterState('idle');
+ listening=false;listenBtn.textContent='🎤 Talk to Smile';setStatus(message||'Conversation stopped. Tap Talk to Smile when you want to chat again.');setCharacterState('idle');
 }
 function beginRecognition(){
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -222,8 +259,8 @@ function beginRecognition(){
   recognition.onresult=e=>{
    let interim='',finalText='';
    for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0]&&e.results[i][0].transcript||'';if(e.results[i].isFinal)finalText+=part;else interim+=part}
-   if(interim)displayHeard(interim+' …');
-   if(finalText.trim()&&!waitingForReply){const said=finalText.trim();waitingForReply=true;displayHeard(said);setStatus('I heard you!');try{recognition.stop()}catch(e){}reply(said,{source:'voice'})}
+   if(interim){clearSilenceTimers();silenceStartedAt=0;displayHeard(interim+' …')}
+   if(finalText.trim()&&!waitingForReply){clearSilenceTimers();silenceStartedAt=0;silenceNudgeCount=0;const said=finalText.trim();waitingForReply=true;displayHeard(said);setStatus('I heard you!');try{recognition.stop()}catch(e){}reply(said,{source:'voice'})}
   };
   recognition.onnomatch=()=>{if(voiceSessionActive&&!waitingForReply){setStatus('I didn’t catch that. I’m still listening…');setTimeout(beginRecognition,400)}};
   recognition.onerror=e=>{
@@ -245,6 +282,7 @@ function beginRecognition(){
 }
 function startListening(){
  if(voiceSessionActive){stopVoiceSession();return}
+ clearSilenceTimers();silenceStartedAt=0;silenceNudgeCount=0;
  voiceSessionActive=true;waitingForReply=false;listenBtn.textContent='⏹ Stop talking';setStatus('Starting our conversation…',true);unlockSpeechFromTap();beginRecognition();
 }
 function sendTyped(){const v=typed.value.trim();if(!v||sendBtn.disabled)return;typed.value='';reply(v)}
