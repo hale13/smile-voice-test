@@ -51,7 +51,7 @@ button:active{transform:scale(.97)}
 .inputrow input{min-width:0;flex:1;border:1px solid #c8e7f7;border-radius:14px;padding:11px 12px;font:inherit;font-size:14px;outline:none}
 .inputrow input:focus{border-color:#36a8df;box-shadow:0 0 0 3px #36a8df22}
 .send{min-width:52px;background:#e7f6ff;color:#0878b8}
-.footer{padding:9px 16px;text-align:center;background:#eaf7ff;color:#62839a;font-size:11px}
+.transcript-tools{margin-top:9px;font-size:12px;color:#52758d;display:flex;align-items:center;gap:7px;flex-wrap:wrap}.transcript-tools input{accent-color:#087fc4;width:16px;height:16px}.heard-box{margin-top:7px;padding:9px 11px;border-radius:13px;background:#f0f9ff;border:1px solid #d0edfb;color:#285b7b;font-size:13px;line-height:1.4;overflow-wrap:anywhere}.heard-label{font-size:10px;font-weight:900;letter-spacing:.7px;text-transform:uppercase;color:#1688bd;margin-bottom:3px}.footer{padding:9px 16px;text-align:center;background:#eaf7ff;color:#62839a;font-size:11px}
 @media(max-width:760px){
  .scene{min-height:100svh}
  .character-wrap{left:50%;transform:translateX(-50%);top:9vh;bottom:auto;width:min(54vw,270px);height:38vh}
@@ -134,6 +134,8 @@ button:active{transform:scale(.97)}
      <button class="send" id="sendBtn" aria-label="Send message">➤</button>
     </div>
     <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Ready when you are</span></div>
+    <label class="transcript-tools"><input type="checkbox" id="showHeard" checked> Show what Smile heard</label>
+    <div class="heard-box" id="heardBox" aria-live="polite"><div class="heard-label">You said</div><span id="heardText">Your words will appear here when you speak.</span></div>
    </aside>
   </section>
  </main>
@@ -145,6 +147,9 @@ let conversationHistory = [];
 
 const line=document.getElementById('smileLine'), trans=document.getElementById('translation');
 const hint=document.getElementById('hint'), statusText=document.getElementById('statusText'), dot=document.getElementById('statusDot');
+const showHeard=document.getElementById('showHeard'), heardBox=document.getElementById('heardBox'), heardText=document.getElementById('heardText');
+function displayHeard(text){heardText.textContent=text||'Listening…';heardBox.hidden=!showHeard.checked;}
+showHeard.addEventListener('change',()=>{heardBox.hidden=!showHeard.checked;});
 let lastSpeech="Hello, buddy! I'm so happy you're here. Shall we talk?";
 let recognition=null, listening=false;
 function setStatus(s,live=false){statusText.textContent=s;dot.classList.toggle('live',live)}
@@ -165,14 +170,15 @@ function show(en,vi,tip){line.textContent=en;trans.textContent=vi;hint.textConte
 async function reply(raw){
  const message=String(raw||'').trim(); if(!message)return;
  setStatus('Smile is thinking…',true); setCharacterState('thinking');
- const support = `\n\nConversation guidance: You are Smile, a warm friend to a young child learning English. Reply mainly in simple, natural English (usually 1-3 short sentences). If the child's meaning is unclear, gently ask ONE simple clarifying question in English. If the child still seems confused, explain briefly in Vietnamese with a simple example or a phrase they can say. Gradually reduce Vietnamese help as the child follows more easily, but bring it back whenever needed. Never shame, test, or pressure the child. Keep the conversation friendly and age-appropriate. Do not claim the child is confused unless their message suggests it.`;
+ // Keep only a few recent turns to reduce request size and preserve useful context.
+ const shortGuidance=' Reply in simple, friendly English for a young child, usually one or two short sentences. If you do not understand, ask one gentle question. If the child needs help, explain briefly in Vietnamese. Never sound like a teacher or examiner.';
  try {
-  const response=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message+support,history:conversationHistory})});
+  const response=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message+shortGuidance,history:conversationHistory.slice(-6)})});
   const data=await response.json();
   if(!response.ok||!data.reply)throw new Error(data.error||'AI request failed');
   const answer=String(data.reply).trim();
   conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});
-  conversationHistory=conversationHistory.slice(-10);
+  conversationHistory=conversationHistory.slice(-8);
   show(answer,'', '💙 You can ask Smile to explain in Vietnamese anytime.'); speak(answer);
  } catch(err) {
   const en="Oops! I can't connect just now. Could you try again in a little moment?";
@@ -186,21 +192,37 @@ const stories=[
 ];
 let storyIndex=0;
 function tellStory(){reply("Tell me a short, fun, interactive story in simple English. Pause at an exciting moment and invite me to decide what happens next.");}
+function gentleRepeat(messageEn="I didn't catch that. Can you say it slowly, please?", messageVi="Smile chưa nghe rõ. Con nói từ từ lại nhé, để Smile nghe cho rõ nào!"){
+ show(messageEn,messageVi,'🎧 Take your time. Smile is listening.'); speak(messageEn); setStatus('Ready to listen again'); setCharacterState('idle');
+}
 function startListening(){
  setStatus('Checking microphone…',true);
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!window.isSecureContext){setStatus('Voice needs a secure HTTPS connection. You can type instead.');return}
- if(!SR){setStatus('Voice input is not supported by this browser. Please use Chrome on a computer or type instead.');return}
+ if(!SR){setStatus('Voice input is not supported here. Please try Chrome or type instead.');return}
  if(listening){try{recognition&&recognition.stop()}catch(e){}return}
  try{
   recognition=new SR();
-  recognition.lang='en-US';recognition.interimResults=false;recognition.maxAlternatives=1;
-  recognition.onstart=()=>{listening=true;setStatus('I’m listening… speak when you’re ready',true);setCharacterState('listening');hint.textContent='🎧 Smile is listening. Take your time.'};
-  recognition.onresult=e=>{const said=e.results&&e.results[0]&&e.results[0][0]?e.results[0][0].transcript:'';if(said){setStatus('I heard: '+said);reply(said)}else{setStatus('I did not catch that. Please try again.')}};
-  recognition.onnomatch=()=>{setStatus('I couldn’t understand that. Please try again or type.');setCharacterState('idle')};
+  recognition.lang='en-US';recognition.interimResults=true;recognition.maxAlternatives=1;
+  recognition.onstart=()=>{listening=true;setStatus('I’m listening… speak when you’re ready',true);setCharacterState('listening');hint.textContent='🎧 Smile is listening. Take your time.';displayHeard('Listening…')};
+  recognition.onresult=e=>{
+   let interim='', finalText='';
+   for(let i=e.resultIndex;i<e.results.length;i++){
+    const part=e.results[i][0]?.transcript||'';
+    if(e.results[i].isFinal)finalText+=part; else interim+=part;
+   }
+   if(interim)displayHeard(interim+' …');
+   if(finalText.trim()){
+    const said=finalText.trim();displayHeard(said);setStatus('I heard: '+said);
+    if(said.length>220){gentleRepeat("Wow, that's a lot! Can you tell me in little pieces, please?","Ôi, con có nhiều điều muốn kể quá! Mình chia thành từng đoạn ngắn nhé?");return;}
+    reply(said);
+   }
+  };
+  recognition.onnomatch=()=>{gentleRepeat()};
   recognition.onerror=e=>{
    listening=false;dot.classList.remove('live');setCharacterState('idle');
-   const messages={ 'not-allowed':'Microphone permission is blocked. Please allow microphone access in your browser settings.', 'service-not-allowed':'Voice service is unavailable. Please try Chrome or type your message.', 'audio-capture':'No microphone was found. Please check your microphone.', 'no-speech':'I didn’t hear anything. Please try again.', 'network':'Voice recognition has a network problem. Please try again.' };
+   if(e.error==='no-speech'){gentleRepeat();return;}
+   const messages={ 'not-allowed':'Microphone permission is blocked. Please allow microphone access in your browser settings.', 'service-not-allowed':'Voice service is unavailable. Please try Chrome or type your message.', 'audio-capture':'No microphone was found. Please check your microphone.', 'network':'Voice recognition has a network problem. Please try again.' };
    setStatus(messages[e.error]||'Voice input had a problem. Please try again or type.');
   };
   recognition.onend=()=>{listening=false;if(!speechSynthesis.speaking){setStatus('Ready when you are');setCharacterState('idle')}};
