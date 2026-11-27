@@ -110,6 +110,9 @@ button:active{transform:scale(.97)}
  <div class="footer">Smile is your friendly English-speaking companion · Take your time and have fun!</div>
 </div>
 <script>
+const AI_ENDPOINT = "https://smile-ai-backend.leha1303.workers.dev/";
+let conversationHistory = [];
+
 const line=document.getElementById('smileLine'), trans=document.getElementById('translation');
 const hint=document.getElementById('hint'), statusText=document.getElementById('statusText'), dot=document.getElementById('statusDot');
 let lastSpeech="Hello, buddy! I'm so happy you're here. Shall we talk?";
@@ -129,27 +132,30 @@ function speak(text){
  speechSynthesis.speak(u);
 }
 function show(en,vi,tip){line.textContent=en;trans.textContent=vi;hint.textContent=tip||'💡 You can say anything. I’m listening!';}
-function reply(raw){
- const s=raw.toLowerCase().trim();
- let en,vi,tip;
- if(/hello|hi|hey|good morning/.test(s)){en="Hey, buddy! I was hoping you'd come and chat. How are you feeling today?";vi="Chào bạn nhỏ! Mình đang mong bạn đến trò chuyện đấy. Hôm nay bạn cảm thấy thế nào?";tip="🌟 Tell Smile how you feel."}
- else if(/sad|unhappy|cry|bad day|upset/.test(s)){en="Oh, I'm sorry, buddy. I'm right here with you. Would you like a hug or a funny little story?";vi="Ôi, mình rất tiếc nhé. Mình ở đây cùng bạn. Bạn muốn một cái ôm hay nghe một câu chuyện vui?";tip="💙 It's okay to share your feelings."}
- else if(/happy|good|great|excited|fun/.test(s)){en="Yay! Your happiness is contagious! Something good happened? I want to hear all about it!";vi="Yay! Niềm vui của bạn làm mình cũng vui lây! Có chuyện gì vui vậy? Kể mình nghe với!";tip="😊 Smile loves hearing your news."}
- else if(/dinosaur|dino/.test(s)){en="Dinosaurs! I love those giant, fascinating creatures. If I could meet one friendly dinosaur, I'd call it Bubbles. What would you call yours?";vi="Khủng long! Mình thích những sinh vật khổng lồ kỳ thú ấy. Nếu gặp một chú khủng long hiền lành, mình sẽ gọi bạn ấy là Bubbles. Bạn sẽ đặt tên gì?";tip="🦖 Let's imagine together."}
- else if(/cat|dog|pet|animal/.test(s)){en="Aww, animals are wonderful! I once imagined a tiny puppy with superhero ears. Do you have a favourite animal?";vi="Động vật thật tuyệt! Mình từng tưởng tượng một chú cún nhỏ có đôi tai siêu anh hùng. Bạn thích con vật nào nhất?";tip="🐾 Tell me about your favourite animal."}
- else if(/food|pizza|chocolate|ice cream|eat/.test(s)){en="Yummy! If I had a tummy, I think it would be full of ice cream. What's your favourite treat?";vi="Ngon quá! Nếu mình có bụng, chắc bụng mình sẽ đầy kem mất. Món ăn yêu thích của bạn là gì?";tip="🍦 Food talk is fun!"}
- else if(/school|teacher|class|homework/.test(s)){en="You had a school day! I wonder what made you smile today. Did you learn or play something interesting?";vi="Hôm nay bạn đi học rồi! Mình tò mò điều gì làm bạn vui hôm nay. Bạn học hay chơi điều gì thú vị không?";tip="🎒 No tests here, just a friendly chat."}
- else if(/thank/.test(s)){en="You're very welcome, buddy! That's what friends are for. I'm glad we got to talk.";vi="Không có gì đâu bạn nhỏ! Bạn bè là thế mà. Mình vui vì chúng ta được trò chuyện.";tip="💙 Friends help each other."}
- else if(/what.*your name|who are you/.test(s)){en="I'm Smile! I'm a curious little robot who loves stories, silly jokes, animals, and making new friends. That's you!";vi="Mình là Smile! Một robot nhỏ tò mò, thích truyện, chuyện vui ngộ nghĩnh, động vật và kết bạn mới. Như bạn vậy!";tip="🤖 Smile is happy to meet you."}
- else {en="That's interesting! I like hearing what you think. It reminds me of a little adventure I want to tell you about. What happened next?";vi="Thú vị đấy! Mình thích nghe suy nghĩ của bạn. Điều đó làm mình nhớ đến một chuyến phiêu lưu nhỏ. Sau đó chuyện gì xảy ra?";tip="✨ Keep telling me. There is no wrong answer."}
- show(en,vi,tip);speak(en);
+async function reply(raw){
+ const message=String(raw||'').trim(); if(!message)return;
+ setStatus('Smile is thinking…',true); setCharacterState('thinking');
+ const support = `\n\nConversation guidance: You are Smile, a warm friend to a young child learning English. Reply mainly in simple, natural English (usually 1-3 short sentences). If the child's meaning is unclear, gently ask ONE simple clarifying question in English. If the child still seems confused, explain briefly in Vietnamese with a simple example or a phrase they can say. Gradually reduce Vietnamese help as the child follows more easily, but bring it back whenever needed. Never shame, test, or pressure the child. Keep the conversation friendly and age-appropriate. Do not claim the child is confused unless their message suggests it.`;
+ try {
+  const response=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message+support,history:conversationHistory})});
+  const data=await response.json();
+  if(!response.ok||!data.reply)throw new Error(data.error||'AI request failed');
+  const answer=String(data.reply).trim();
+  conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});
+  conversationHistory=conversationHistory.slice(-10);
+  show(answer,'', '💙 You can ask Smile to explain in Vietnamese anytime.'); speak(answer);
+ } catch(err) {
+  const en="Oops! I can't connect just now. Could you try again in a little moment?";
+  const vi='Smile đang gặp chút trục trặc kết nối. Con thử lại sau một lát nhé!';
+  show(en,vi,'🔄 You can also type your message.'); speak(en); setStatus('Connection problem. Please try again.');
+ }
 }
 const stories=[
  ["Once upon a time, a tiny blue dragon was afraid of the dark. One night, a firefly showed him that even a little light can make a big difference. And they became best friends!","Ngày xửa ngày xưa, một chú rồng xanh bé xíu sợ bóng tối. Một đêm, đom đóm chỉ cho rồng thấy ánh sáng nhỏ cũng có thể tạo nên khác biệt lớn. Rồi họ trở thành bạn thân!"],
  ["A little astronaut robot flew to the moon. He found a sleepy star hiding behind a crater. 'Come with me,' he said, 'the sky is more fun when we explore together!'","Một robot phi hành gia bay lên mặt trăng. Bạn ấy tìm thấy một ngôi sao buồn ngủ trốn sau miệng núi. 'Đi cùng mình nhé, bầu trời vui hơn khi chúng ta cùng khám phá!'"]
 ];
 let storyIndex=0;
-function tellStory(){const st=stories[storyIndex++%stories.length];show(st[0],st[1],"📖 What do you think happens next?");setCharacterState('thinking');speak(st[0]);}
+function tellStory(){reply("Tell me a short, fun, interactive story in simple English. Pause at an exciting moment and invite me to decide what happens next.");}
 function startListening(){
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SR){setStatus('Voice input is not available here. You can type instead.');return}
