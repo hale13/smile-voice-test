@@ -127,35 +127,41 @@ const heardBox=document.getElementById('heardBox'), heardText=document.getElemen
 const typed=document.getElementById('typed'), sendBtn=document.getElementById('sendBtn'), listenBtn=document.getElementById('listenBtn');
 let lastSpeech="Hello, buddy! I'm so happy you're here. Shall we talk?";
 let recognition=null, listening=false, conversationHistory=[], activeController=null, requestNumber=0;
+let voiceSessionActive=false, waitingForReply=false, recognitionStarting=false, speechToken=0;
 function setStatus(s,live=false){statusText.textContent=s;dot.classList.toggle('live',live)}
 function setCharacterState(state){document.querySelector('.scene').dataset.state=state}
 function displayHeard(text){heardText.textContent=text||'';heardBox.hidden=!showHeard.checked||!text}
 showHeard.addEventListener('change',()=>{heardBox.hidden=!showHeard.checked||!heardText.textContent});
-function speak(text){
+function speak(text, onFinished){
  lastSpeech=text;
- if(!('speechSynthesis' in window)){setStatus('Smile can reply in text, but speaking is not supported here.');return}
- try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.9;u.pitch=1.1;
+ if(!('speechSynthesis' in window)){setStatus('Smile can reply in text, but speaking is not supported here.');if(onFinished)onFinished();return}
+ const token=++speechToken;
+ try{
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.9;u.pitch=1.1;
   const voices=speechSynthesis.getVoices();const preferred=voices.find(v=>/samantha/i.test(v.name))||voices.find(v=>/^en[-_]/i.test(v.lang));if(preferred)u.voice=preferred;
+  const finish=()=>{if(token!==speechToken)return;setCharacterState('idle');if(onFinished)onFinished();if(voiceSessionActive){waitingForReply=false;setStatus('Your turn! I am listening…');setTimeout(beginRecognition,350)}};
   u.onstart=()=>{setStatus('Smile is speaking…',true);setCharacterState('speaking')};
-  u.onend=()=>{setStatus('Your turn! I am listening whenever you are');setCharacterState('idle')};
-  u.onerror=()=>{setStatus('Smile has replied. You can read the message above.');setCharacterState('idle')};speechSynthesis.speak(u);
- }catch(e){setStatus('Smile has replied. You can read the message above.');setCharacterState('idle')}
+  u.onend=finish;
+  u.onerror=finish;
+  speechSynthesis.speak(u);
+ }catch(e){setStatus('Smile has replied. You can read the message above.');setCharacterState('idle');if(onFinished)onFinished();if(voiceSessionActive){waitingForReply=false;setTimeout(beginRecognition,500)}}
 }
 function show(en,vi,tip){line.textContent=en;trans.textContent=vi||'';hint.textContent=tip||'💡 You can say anything. I’m listening!'}
 function friendlyRetry(){
  const en="I didn't catch that. Can you say it slowly, please?";
  const vi="Smile chưa nghe rõ. Con nói từ từ lại nhé, để Smile nghe cho rõ nào!";
- show(en,vi,'🎧 Take your time. Smile is listening.');speak(en);setStatus('Ready to listen again');setCharacterState('idle');
+ show(en,vi,'🎧 Take your time. Smile is listening.');waitingForReply=voiceSessionActive;speak(en);setStatus('Ready to listen again');setCharacterState('idle');
 }
 async function reply(raw, options={}){
  const message=String(raw||'').trim();if(!message)return;
  if(message.length>500){displayHeard(message);friendlyRetry();return}
  if(activeController){activeController.abort();activeController=null}
- const thisRequest=++requestNumber;const controller=new AbortController();activeController=controller;
+ const thisRequest=++requestNumber;const controller=new AbortController();activeController=controller;if(voiceSessionActive)waitingForReply=true;
  const timeout=setTimeout(()=>controller.abort(),55000);
  let slowNotice=setTimeout(()=>{if(thisRequest===requestNumber)setStatus('Smile is thinking… just a little longer 💙',true)},12000);
  displayHeard(options.displayText===false?'':message);
- setStatus('Smile is thinking…',true);setCharacterState('thinking');sendBtn.disabled=true;listenBtn.disabled=true;
+ setStatus('Smile is thinking…',true);setCharacterState('thinking');sendBtn.disabled=true;
  try{
   const response=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,history:conversationHistory.slice(-6)}),signal:controller.signal});
   if(!response.ok)throw new Error('Smile could not connect ('+response.status+')');
@@ -174,7 +180,7 @@ async function reply(raw, options={}){
   setCharacterState('idle');
  }finally{
   clearTimeout(timeout);clearTimeout(slowNotice);
-  if(thisRequest===requestNumber){activeController=null;sendBtn.disabled=false;listenBtn.disabled=false}
+  if(thisRequest===requestNumber){activeController=null;sendBtn.disabled=false}
  }
 }
 const stories=[
@@ -182,20 +188,44 @@ const stories=[
  "Tell me a magical little adventure about a robot exploring the moon. Keep it warm, funny, and suitable for a young child."
 ];let storyIndex=0;
 function tellStory(){const prompt=stories[storyIndex++%stories.length];displayHeard('Tell me a story, Smile!');reply(prompt,{displayText:false})}
-function startListening(){
+function stopVoiceSession(){
+ voiceSessionActive=false;waitingForReply=false;recognitionStarting=false;
+ try{if(recognition)recognition.stop()}catch(e){}
+ try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch(e){}
+ listening=false;listenBtn.textContent='🎤 Talk to Smile';setStatus('Conversation stopped. Tap Talk to Smile when you want to chat again.');setCharacterState('idle');
+}
+function beginRecognition(){
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!window.isSecureContext){setStatus('Voice needs a secure connection. You can type instead.');return}
- if(!SR){setStatus('Voice input is not available here. Please try Chrome or type instead.');return}
- if(listening){try{recognition&&recognition.stop()}catch(e){}return}
+ if(!voiceSessionActive||waitingForReply||activeController||recognitionStarting||listening)return;
+ if(!window.isSecureContext){setStatus('Voice needs a secure connection. You can type instead.');stopVoiceSession();return}
+ if(!SR){setStatus('Voice input is not available here. Please try Chrome or type instead.');stopVoiceSession();return}
  try{
-  recognition=new SR();recognition.lang='en-US';recognition.interimResults=true;recognition.maxAlternatives=1;
-  recognition.onstart=()=>{listening=true;setStatus('I’m listening… speak when you’re ready',true);setCharacterState('listening');hint.textContent='🎧 Smile is listening. Take your time.';displayHeard('Listening…')};
-  recognition.onresult=e=>{let interim='',finalText='';for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0]&&e.results[i][0].transcript||'';if(e.results[i].isFinal)finalText+=part;else interim+=part}if(interim)displayHeard(interim+' …');if(finalText.trim()){const said=finalText.trim();displayHeard(said);setStatus('I heard you!');reply(said)}};
-  recognition.onnomatch=()=>friendlyRetry();
-  recognition.onerror=e=>{listening=false;setCharacterState('idle');if(e.error==='no-speech'){friendlyRetry();return}const msgs={'not-allowed':'Please allow microphone access in your browser, or type your message.','audio-capture':'I cannot find a microphone. You can type instead.','network':'The voice connection is having trouble. Please try again or type.'};setStatus(msgs[e.error]||'I could not hear that. Please try again or type.');};
-  recognition.onend=()=>{listening=false;if(!speechSynthesis.speaking&& !activeController){setStatus('Ready when you are');setCharacterState('idle')}};
+  recognitionStarting=true;recognition=new SR();recognition.lang='en-US';recognition.interimResults=true;recognition.maxAlternatives=1;
+  recognition.onstart=()=>{recognitionStarting=false;listening=true;setStatus('I’m listening… speak whenever you are ready',true);setCharacterState('listening');hint.textContent='🎧 Smile is listening. Take your time.';displayHeard('Listening…')};
+  recognition.onresult=e=>{
+   let interim='',finalText='';
+   for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0]&&e.results[i][0].transcript||'';if(e.results[i].isFinal)finalText+=part;else interim+=part}
+   if(interim)displayHeard(interim+' …');
+   if(finalText.trim()&&!waitingForReply){const said=finalText.trim();waitingForReply=true;displayHeard(said);setStatus('I heard you!');try{recognition.stop()}catch(e){}reply(said)}
+  };
+  recognition.onnomatch=()=>{if(voiceSessionActive&&!waitingForReply){setStatus('I didn’t catch that. I’m still listening…');setTimeout(beginRecognition,400)}};
+  recognition.onerror=e=>{
+   recognitionStarting=false;listening=false;
+   if(!voiceSessionActive)return;
+   if(e.error==='no-speech'){setTimeout(beginRecognition,450);return}
+   const msgs={'not-allowed':'Please allow microphone access in your browser.','audio-capture':'I cannot find a microphone. Please check the microphone.','network':'The voice connection is having trouble. Please try again.'};
+   setStatus(msgs[e.error]||'I could not hear that. Please try again.');stopVoiceSession();
+  };
+  recognition.onend=()=>{
+   recognitionStarting=false;listening=false;
+   if(voiceSessionActive&&!waitingForReply&&!activeController&&!(('speechSynthesis' in window)&&speechSynthesis.speaking))setTimeout(beginRecognition,350);
+  };
   recognition.start();
- }catch(e){listening=false;setCharacterState('idle');setStatus('Could not start the microphone. Please check its permission or type instead.')}
+ }catch(e){recognitionStarting=false;listening=false;if(voiceSessionActive){setStatus('Could not start the microphone. Please check its permission.');stopVoiceSession()}}
+}
+function startListening(){
+ if(voiceSessionActive){stopVoiceSession();return}
+ voiceSessionActive=true;waitingForReply=false;listenBtn.textContent='⏹ Stop talking';setStatus('Starting our conversation…',true);beginRecognition();
 }
 function sendTyped(){const v=typed.value.trim();if(!v||sendBtn.disabled)return;typed.value='';reply(v)}
 document.getElementById('listenBtn').addEventListener('click',startListening);
