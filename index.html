@@ -169,7 +169,9 @@ async function reply(raw, options={}){
   const answer=String(data&&data.reply||'').trim();if(!answer)throw new Error('Smile did not receive an answer');
   if(thisRequest!==requestNumber)return;
   conversationHistory.push({role:'user',content:message},{role:'assistant',content:answer});conversationHistory=conversationHistory.slice(-8);
-  show(answer,'','💙 You can ask Smile to explain in Vietnamese anytime.');speak(answer);
+  show(answer,'','💙 You can ask Smile to explain in Vietnamese anytime.');
+  // Both typed and spoken messages use the same automatic voice reply.
+  speak(answer);
  }catch(err){
   if(thisRequest!==requestNumber)return;
   if(err&&err.name==='AbortError'){
@@ -206,14 +208,17 @@ function beginRecognition(){
    let interim='',finalText='';
    for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0]&&e.results[i][0].transcript||'';if(e.results[i].isFinal)finalText+=part;else interim+=part}
    if(interim)displayHeard(interim+' …');
-   if(finalText.trim()&&!waitingForReply){const said=finalText.trim();waitingForReply=true;displayHeard(said);setStatus('I heard you!');try{recognition.stop()}catch(e){}reply(said)}
+   if(finalText.trim()&&!waitingForReply){const said=finalText.trim();waitingForReply=true;displayHeard(said);setStatus('I heard you!');try{recognition.stop()}catch(e){}reply(said,{source:'voice'})}
   };
   recognition.onnomatch=()=>{if(voiceSessionActive&&!waitingForReply){setStatus('I didn’t catch that. I’m still listening…');setTimeout(beginRecognition,400)}};
   recognition.onerror=e=>{
    recognitionStarting=false;listening=false;
    if(!voiceSessionActive)return;
+   // Browsers may emit 'aborted' after we intentionally stop recognition
+   // because the child has finished speaking. This is not a microphone failure.
+   if(e.error==='aborted' && waitingForReply)return;
    if(e.error==='no-speech'){setTimeout(beginRecognition,450);return}
-   const msgs={'not-allowed':'Please allow microphone access in your browser.','audio-capture':'I cannot find a microphone. Please check the microphone.','network':'The voice connection is having trouble. Please try again.'};
+   const msgs={'not-allowed':'Please allow microphone access in your browser.','audio-capture':'I cannot find a microphone. Please check the microphone.','network':'The voice connection is having trouble.'};
    setStatus(msgs[e.error]||'I could not hear that. Please try again.');stopVoiceSession();
   };
   recognition.onend=()=>{
