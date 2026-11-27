@@ -127,10 +127,24 @@ const heardBox=document.getElementById('heardBox'), heardText=document.getElemen
 const typed=document.getElementById('typed'), sendBtn=document.getElementById('sendBtn'), listenBtn=document.getElementById('listenBtn');
 let lastSpeech="Hello, buddy! I'm so happy you're here. Shall we talk?";
 let recognition=null, listening=false, conversationHistory=[], activeController=null, requestNumber=0;
-let voiceSessionActive=false, waitingForReply=false, recognitionStarting=false, speechToken=0;
+let voiceSessionActive=false, waitingForReply=false, recognitionStarting=false, speechToken=0, speechUnlocked=false;
 function setStatus(s,live=false){statusText.textContent=s;dot.classList.toggle('live',live)}
 function setCharacterState(state){document.querySelector('.scene').dataset.state=state}
 function displayHeard(text){heardText.textContent=text||'';heardBox.hidden=!showHeard.checked||!text}
+function unlockSpeechFromTap(){
+ // Prime browser speech synthesis directly inside the child's microphone-button tap.
+ // This is especially important on iOS Safari, which may reject speech started
+ // only after an asynchronous AI/network response.
+ if(!('speechSynthesis' in window)||speechUnlocked)return;
+ try{
+  const warmup=new SpeechSynthesisUtterance(' ');
+  warmup.lang='en-US';warmup.volume=0;
+  warmup.onend=()=>{speechUnlocked=true};
+  warmup.onerror=()=>{speechUnlocked=true};
+  speechSynthesis.speak(warmup);
+  speechUnlocked=true;
+ }catch(e){/* Normal speech will still be attempted and can be replayed manually. */}
+}
 showHeard.addEventListener('change',()=>{heardBox.hidden=!showHeard.checked||!heardText.textContent});
 function speak(text, onFinished){
  lastSpeech=text;
@@ -231,7 +245,7 @@ function beginRecognition(){
 }
 function startListening(){
  if(voiceSessionActive){stopVoiceSession();return}
- voiceSessionActive=true;waitingForReply=false;listenBtn.textContent='⏹ Stop talking';setStatus('Starting our conversation…',true);beginRecognition();
+ voiceSessionActive=true;waitingForReply=false;listenBtn.textContent='⏹ Stop talking';setStatus('Starting our conversation…',true);unlockSpeechFromTap();beginRecognition();
 }
 function sendTyped(){const v=typed.value.trim();if(!v||sendBtn.disabled)return;typed.value='';reply(v)}
 document.getElementById('listenBtn').addEventListener('click',startListening);
